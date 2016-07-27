@@ -107,6 +107,15 @@ func (vr *VirtRouter) Path() string {
 	return vr.path
 }
 
+// 节点排序
+func (v *VirtRouter) Sort() *VirtRouter {
+	sort.Sort(v.Children)
+	for _, child := range v.Children {
+		child.Sort()
+	}
+	return v
+}
+
 // 设置虚拟路由节点url前缀
 func (vr *VirtRouter) SetPrefix(prefix string) (err error) {
 	if !vr.Dynamic {
@@ -164,6 +173,7 @@ func (vr *VirtRouter) Use(middlewares ...*ApiMiddleware) *VirtRouter {
 		ms[i+_l] = m.NewMiddlewareConfig()
 	}
 	vr.Middlewares = ms
+	vr.reset()
 	return vr
 }
 
@@ -175,12 +185,14 @@ func (vr *VirtRouter) ResetUse(middlewares []*MiddlewareConfig) (err error) {
 	if middlewares == nil {
 		middlewares = []*MiddlewareConfig{}
 	}
-	_orgin := vr.Middlewares
+	orgin := vr.Middlewares
 	vr.Middlewares = middlewares
+	vr.reset()
 	err = saveVirtRouterConfig()
 	if err != nil {
 		// 数据回滚
-		vr.Middlewares = _orgin
+		vr.Middlewares = orgin
+		vr.reset()
 	}
 	return
 }
@@ -244,14 +256,14 @@ func (vr *VirtRouter) addChild(virtRouter *VirtRouter) (err error) {
 	}
 
 	virtRouter.Parent = vr
-	children := vr.Children
+	children := make([]*VirtRouter, len(vr.Children))
+	copy(children, vr.Children)
 	vr.Children = append(vr.Children, virtRouter)
 	virtRouter.reset()
 	err = saveVirtRouterConfig()
 	if err != nil {
 		// 数据回滚
 		vr.Children = children
-		virtRouter.reset()
 	} else {
 		addVirtRouter(virtRouter)
 	}
@@ -328,7 +340,6 @@ func (vr *VirtRouter) initFromConfig() {
 
 	// 设置节点path和params
 	vr.setParamsAndPath()
-	sort.Sort(vr.Children)
 	for _, child := range vr.Children {
 		child.Parent = vr
 		child.initFromConfig()
@@ -343,7 +354,6 @@ func (vr *VirtRouter) reset() {
 	if vr.Parent != nil {
 		sort.Sort(vr.Parent.Children)
 	}
-	vr.sort()
 }
 
 // 设置节点及其子节点的path和params
@@ -418,13 +428,6 @@ func (vr *VirtRouter) setParamsAndPath() {
 		vr.path = pathpkg.Join("/", parentPath, vr.Prefix, vr.suffix)
 	} else {
 		vr.path = pathpkg.Join("/", parentPath, vr.Prefix)
-	}
-}
-
-func (v *VirtRouter) sort() {
-	sort.Sort(v.Children)
-	for _, child := range v.Children {
-		child.sort()
 	}
 }
 
@@ -584,7 +587,12 @@ func newRootVirtRouter() *VirtRouter {
 }
 
 // 从配置文件初始化虚拟路由
+// 路由各级兄弟节点排序
 func initVirtRouterConfig() {
+	defer func() {
+		lessgo.virtRouter.Sort()
+	}()
+
 	md5, vr, err := readVirtRouterConfig()
 	if err != nil {
 		Log.Error("Read the config/virtrouter.config failed: %v.", err)
