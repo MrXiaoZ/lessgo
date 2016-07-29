@@ -609,13 +609,13 @@ func (c *Context) File(file string) error {
 	if app.CanMemoryCache() {
 		b, fi, exist := app.memoryCache.GetCacheFile(file)
 		if !exist {
-			return ErrNotFound
+			return app.router.NotFound(c)
 		}
 		return c.ServeContent2(b, fi.Name(), fi.ModTime())
 	}
 	f, err := os.Open(file)
 	if err != nil {
-		return ErrNotFound
+		return app.router.NotFound(c)
 	}
 	defer f.Close()
 
@@ -624,7 +624,7 @@ func (c *Context) File(file string) error {
 		file = filepath.Join(file, indexPage)
 		f, err = os.Open(file)
 		if err != nil {
-			return ErrNotFound
+			return app.router.NotFound(c)
 		}
 		fi, _ = f.Stat()
 	}
@@ -640,7 +640,7 @@ func (c *Context) Markdown(file string, hasCatalog ...bool) error {
 	if app.CanMemoryCache() {
 		b, fi, exist := app.memoryCache.GetCacheFile(file)
 		if !exist {
-			return ErrNotFound
+			return app.router.NotFound(c)
 		}
 		if c.isModified(fi.Name(), fi.ModTime()) {
 			c.WriteHeader(http.StatusOK)
@@ -650,7 +650,7 @@ func (c *Context) Markdown(file string, hasCatalog ...bool) error {
 	}
 	f, err := os.Open(file)
 	if err != nil {
-		return ErrNotFound
+		return app.router.NotFound(c)
 	}
 	defer f.Close()
 
@@ -659,14 +659,14 @@ func (c *Context) Markdown(file string, hasCatalog ...bool) error {
 		file = filepath.Join(file, indexPage)
 		f, err = os.Open(file)
 		if err != nil {
-			return ErrNotFound
+			return app.router.NotFound(c)
 		}
 		fi, _ = f.Stat()
 	}
 	if c.isModified(fi.Name(), fi.ModTime()) {
 		buf, err := ioutil.ReadAll(f)
 		if err != nil {
-			return ErrNotFound
+			return app.router.NotFound(c)
 		}
 		c.WriteHeader(http.StatusOK)
 		return markdown.GithubMarkdown(buf, c.response, catalog)

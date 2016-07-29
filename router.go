@@ -162,8 +162,7 @@ func (r *Router) process(next HandlerFunc) HandlerFunc {
 					} else {
 						req.URL.Path = path + "/"
 					}
-					c.Redirect(code, req.URL.String())
-					return next(c)
+					return c.Redirect(code, req.URL.String())
 				}
 
 				// Try to fix the request path
@@ -174,8 +173,7 @@ func (r *Router) process(next HandlerFunc) HandlerFunc {
 					)
 					if found {
 						req.URL.Path = utils.Bytes2String(fixedPath)
-						c.Redirect(code, req.URL.String())
-						return next(c)
+						return c.Redirect(code, req.URL.String())
 					}
 				}
 			}
@@ -186,8 +184,7 @@ func (r *Router) process(next HandlerFunc) HandlerFunc {
 			if r.HandleOPTIONS {
 				if allow := r.allowed(path, req.Method, c.pkeys, c.pvalues); len(allow) > 0 {
 					c.response.Header().Set("Allow", allow)
-					c.NoContent(200)
-					return next(c)
+					return c.NoContent(200)
 				}
 			}
 		} else {
@@ -195,18 +192,12 @@ func (r *Router) process(next HandlerFunc) HandlerFunc {
 			if r.HandleMethodNotAllowed {
 				if allow := r.allowed(path, req.Method, c.pkeys, c.pvalues); len(allow) > 0 {
 					c.response.Header().Set("Allow", allow)
-					if err := r.MethodNotAllowed(c); err != nil {
-						return err
-					}
-					return next(c)
+					return r.MethodNotAllowed(c)
 				}
 			}
 		}
 
 		// Handle 404
-		if err := r.NotFound(c); err != nil {
-			return err
-		}
-		return next(c)
+		return r.NotFound(c)
 	}
 }

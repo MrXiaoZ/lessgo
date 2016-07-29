@@ -178,13 +178,27 @@ var (
 	// 请求的url不存在时的默认操作
 	// 404 Not Found
 	defaultNotFoundHandler = func(c *Context) error {
-		return ErrNotFound
+		return c.HTML(http.StatusNotFound, `<html>
+<head><title>404 Not Found</title></head>
+<body bgcolor="white">
+<center><h1>404 Not Found</h1></center>
+<hr><center>lessgo/`+VERSION+`</center>
+</body>
+</html>
+`)
 	}
 
 	// 请求的url存在但方法不被允许时的默认操作
 	// 405 Method Not Allowed
 	defaultMethodNotAllowedHandler = func(c *Context) error {
-		return ErrMethodNotAllowed
+		return c.HTML(http.StatusMethodNotAllowed, `<html>
+<head><title>405 Method Not Allowed</title></head>
+<body bgcolor="white">
+<center><h1>405 Method Not Allowed</h1></center>
+<hr><center>lessgo/`+VERSION+`</center>
+</body>
+</html>
+`)
 	}
 
 	// 请求的操作发生错误后的默认处理
@@ -211,7 +225,15 @@ var (
 			Log.Error("%v", err)
 		}
 		if !c.response.Committed() {
-			c.String(code, msg)
+			c.HTML(code, `<html>
+<head><title>500 Internal Server Error</title></head>
+<body bgcolor="white">
+<center><h1>500 Internal Server Error</h1></center>
+<hr><center>lessgo/`+VERSION+`</center>
+<br><p><b style="color:red;">[ERROR]</b> `+msg+`</p>
+</body>
+</html>
+`)
 		}
 	}
 )
