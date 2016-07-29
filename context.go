@@ -781,8 +781,9 @@ func (c *Context) ReverseProxy(targetUrlBase string, pathAppend bool) error {
 }
 
 // Error invokes the registered HTTP error handler. Generally used by middleware.
-func (c *Context) Error(err error) {
+func (c *Context) Error(err error) error {
 	app.router.ErrorPanicHandler(c, err, nil)
+	return nil
 }
 
 // CruSession returns session data info.
