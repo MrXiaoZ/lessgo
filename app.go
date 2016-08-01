@@ -507,7 +507,7 @@ func (this *App) webSocket(path string, handler HandlerFunc, middleware ...Middl
 			c.SetWs(ws)
 			err := handler(c)
 			if err != nil {
-				Log.Warn("WebSocket: [%v]%v", c.RealRemoteAddr(), err)
+				Log.Debug("WebSocket: [%v]%v", c.RealRemoteAddr(), err)
 			}
 		}).ServeHTTP(c.response, c.request)
 		return nil
