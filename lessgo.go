@@ -128,22 +128,14 @@ func Sessions() *session.Manager {
 	return app.Sessions()
 }
 
-// 设置请求的url不存在时的默认操作(内部有默认实现)
-// 404 Not Found
-func SetNotFound(fn func(*Context) error) {
-	app.SetNotFound(fn)
+// 设置获取请求过程中恐慌Stack信息的函数(内部有默认实现)
+func SetPanicStackFunc(fn func(rcv interface{}) string) {
+	app.SetPanicStackFunc(fn)
 }
 
-// 设置请求的url存在但方法不被允许时的默认操作(内部有默认实现)
-// 405 Method Not Allowed
-func SetMethodNotAllowed(fn func(*Context) error) {
-	app.SetMethodNotAllowed(fn)
-}
-
-// 设置请求的操作发生错误后的默认处理(内部有默认实现)
-// 500 Internal Server Error
-func SetInternalServerError(fn func(c *Context, err error, rcv interface{})) {
-	app.SetInternalServerError(fn)
+// 设置失败状态默认的响应操作(内部有默认实现)
+func SetFailureHandler(fn func(c *Context, code int, errString string) error) {
+	app.SetFailureHandler(fn)
 }
 
 // 设置捆绑数据处理接口(内部有默认实现)
@@ -489,9 +481,6 @@ func ReregisterRouter() {
 
 // 运行服务
 func Run() {
-	// 尝试设置系统默认通用操作
-	tryRegisterDefaultHandler()
-
 	// 添加系统预设的路由操作前的中间件
 	registerBefore()
 
@@ -540,7 +529,7 @@ func Run() {
 	Log.Sys("> %s listening and serving %s on %v (%s-mode) %v", Config.AppName, protocol, Config.Listen.Address, mode, graceful)
 
 	// 启动服务
-	app.run(
+	lessgo.App.run(
 		Config.Listen.Address,
 		tlsCertfile,
 		tlsKeyfile,
