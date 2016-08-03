@@ -45,11 +45,17 @@ func (a ApiMiddleware) Reg() *ApiMiddleware {
 	return a.init()
 }
 
-// 获取JSON字符串格式的中间件配置
-func (a *ApiMiddleware) ConfigJSON() string {
+// 克隆中间件
+func (a *ApiMiddleware) Clone() *ApiMiddleware {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
-	return a.configJSON
+	return (&ApiMiddleware{
+		Name:       a.Name,
+		Desc:       a.Desc,
+		Params:     a.Params,
+		Config:     a.Config,
+		Middleware: a.Middleware,
+	}).init()
 }
 
 // 设置默认配置，重置中间件
@@ -62,6 +68,13 @@ func (a *ApiMiddleware) SetConfig(confObject interface{}) *ApiMiddleware {
 	delete(apiMiddlewareMap, a.Name)
 	apiMiddlewareLock.Unlock()
 	return a.init()
+}
+
+// 获取JSON字符串格式的中间件配置
+func (a *ApiMiddleware) ConfigJSON() string {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+	return a.configJSON
 }
 
 // 返回中间件配置结构体
