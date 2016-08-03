@@ -429,26 +429,38 @@ func WrapMiddlewareConfigs(middlewares []interface{}) ([]*MiddlewareConfig, erro
 }
 
 // 重建底层真实路由
-func ReregisterRouter() {
+func ReregisterRouter(reasons ...string) {
+	if len(reasons) > 0 {
+		Log.Sys("Begin reregister router...\n[reason] %s\n\n", reasons[0])
+		defer Log.Sys("Reregister router end.\n\n")
+	}
+
 	var err error
+
+	defer func() {
+		if err != nil {
+			Log.Error("Creating/Recreating router fails: %s", err.Error())
+		}
+	}()
+
+	if err = saveVirtRouterConfig(); err != nil {
+		return
+	}
+
 	// 检查路由操作执行前后，中间件配置的可用性
 	if err = isExistMiddlewares(lessgo.virtBefore...); err != nil {
-		Log.Error("Create/Recreate the router is faulty: %v", err)
 		return
 	}
 	if err = isExistMiddlewares(lessgo.virtAfter...); err != nil {
-		Log.Error("Create/Recreate the router is faulty: %v", err)
 		return
 	}
 	for _, v := range lessgo.virtFiles {
 		if err = isExistMiddlewares(v.Middlewares...); err != nil {
-			Log.Error("Create/Recreate the router is faulty: %v", err)
 			return
 		}
 	}
 	for _, v := range lessgo.virtStatics {
 		if err = isExistMiddlewares(v.Middlewares...); err != nil {
-			Log.Error("Create/Recreate the router is faulty: %v", err)
 			return
 		}
 	}

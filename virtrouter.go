@@ -197,6 +197,16 @@ func (vr *VirtRouter) ResetUse(middlewares []*MiddlewareConfig) (err error) {
 	return
 }
 
+// 获取虚拟路由节点的中间件
+func (vr *VirtRouter) GetMiddlewareConfig(name string) (*MiddlewareConfig, bool) {
+	for _, m := range vr.Middlewares {
+		if m.Name == name {
+			return m, true
+		}
+	}
+	return nil, false
+}
+
 // 为节点更换操作
 func (vr *VirtRouter) SetApiHandler(hid string) (err error) {
 	if !vr.Dynamic {
@@ -483,7 +493,9 @@ func readVirtRouterConfig() (md5 string, vr *VirtRouter, err error) {
 	if !bytes.Contains(b, utils.String2Bytes("{")) {
 		return "", nil, nil
 	}
-	vrc := virtRouterConfig{}
+	vrc := virtRouterConfig{
+		VirtRouter: lessgo.virtRouter,
+	}
 	err = json.Unmarshal(b, &vrc)
 	if err != nil {
 		return
@@ -497,6 +509,7 @@ func saveVirtRouterConfig() error {
 		// 源码路由初始化未完成时不做保存操作
 		return nil
 	}
+	os.Remove(ROUTERCONFIG_FILE)
 	f, err := os.OpenFile(ROUTERCONFIG_FILE, os.O_CREATE|os.O_WRONLY, 0777)
 	if err != nil {
 		return err
@@ -529,12 +542,24 @@ func (vs virtRouterSlice) Swap(i, j int) {
 	vs[i], vs[j] = vs[j], vs[i]
 }
 
-// 快速返回指定id对于的虚拟路由节点
+// 根据id获取虚拟路由节点
 func GetVirtRouter(id string) (*VirtRouter, bool) {
 	virtRouterLock.RLock()
 	defer virtRouterLock.RUnlock()
 	vr, ok := virtRouterMap[id]
 	return vr, ok
+}
+
+// 根据path获取虚拟路由节点
+func GetVirtRouterByPath(path string) (*VirtRouter, bool) {
+	virtRouterLock.RLock()
+	defer virtRouterLock.RUnlock()
+	for _, vr := range virtRouterMap {
+		if vr.path == path {
+			return vr, true
+		}
+	}
+	return nil, false
 }
 
 // 创建虚拟路由动态分组
@@ -628,7 +653,7 @@ func initVirtRouterConfig() {
 	if vr != nil {
 		vr.initFromConfig()
 		merge(lessgo.virtRouter, vr)
-		os.Remove(ROUTERCONFIG_FILE)
+		// os.Remove(ROUTERCONFIG_FILE)
 	}
 	return
 }
