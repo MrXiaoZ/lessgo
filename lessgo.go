@@ -431,7 +431,11 @@ func WrapMiddlewareConfigs(middlewares []interface{}) ([]*MiddlewareConfig, erro
 // 重建底层真实路由
 func ReregisterRouter(reasons ...string) {
 	if len(reasons) > 0 {
-		Log.Sys("Begin reregister router...\n[reason] %s\n\n", reasons[0])
+		if len(reasons[0]) > 0 {
+			Log.Sys("Begin reregister router...\n[reason] %s\n\n", reasons[0])
+		} else {
+			Log.Sys("Begin reregister router...\n\n")
+		}
 		defer Log.Sys("Reregister router end.\n\n")
 	}
 
@@ -533,9 +537,9 @@ func Run() {
 		mode = "release"
 	}
 	if Config.Listen.Graceful {
-		graceful = "(enable-graceful-restart)"
+		graceful = "(enable-graceful)"
 	} else {
-		graceful = "(disable-graceful-restart)"
+		graceful = "(disable-graceful)"
 	}
 
 	Log.Sys("> %s listening and serving %s on %v (%s-mode) %v", Config.AppName, protocol, Config.Listen.Address, mode, graceful)

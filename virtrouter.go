@@ -66,8 +66,8 @@ const (
 
 var (
 	// 虚拟路由记录表，便于快速查找路由节点
-	virtRouterMap  = map[string]*VirtRouter{}
-	virtRouterLock sync.RWMutex
+	virtRouterMap     = map[string]*VirtRouter{}
+	virtRouterMapLock sync.RWMutex
 
 	// 非动态节点不可修改
 	notDynamicError = fmt.Errorf("The specified node is not dynamic, and therefore can not be modified.")
@@ -321,18 +321,13 @@ func (vr *VirtRouter) delChild(virtRouter *VirtRouter) (err error) {
 }
 
 // 对从配置文件读来的路由进行部分字段的初始化
-func (vr *VirtRouter) initFromConfig() {
+func (vr *VirtRouter) initFromConfig(updateVirtRouterMap bool) {
 	// 获取操作
 	vr.apiHandler = getApiHandler(vr.Hid)
 
 	if vr.apiHandler == nil {
-		if vr.Type != HANDLER {
-			// 为根节点或分组节点时
-			// 为分组类节点添加空操作
-			vr.apiHandler = NilApiHandler("?")
-
-		} else {
-			// 移除无效的操作类节点
+		// 移除无效的操作类节点
+		if vr.Type == HANDLER {
 			parent := vr.Parent
 			if parent == nil {
 				return
@@ -346,13 +341,23 @@ func (vr *VirtRouter) initFromConfig() {
 			}
 			return
 		}
+
+		// 为根节点或分组节点时
+		// 为分组类节点添加空操作
+		vr.apiHandler = NilApiHandler("?")
 	}
 
 	// 设置节点path和params
 	vr.setParamsAndPath()
+
+	// 更新节点索引
+	if updateVirtRouterMap {
+		setVirtRouter(vr)
+	}
+
 	for _, child := range vr.Children {
 		child.Parent = vr
-		child.initFromConfig()
+		child.initFromConfig(updateVirtRouterMap)
 	}
 }
 
@@ -493,9 +498,7 @@ func readVirtRouterConfig() (md5 string, vr *VirtRouter, err error) {
 	if !bytes.Contains(b, utils.String2Bytes("{")) {
 		return "", nil, nil
 	}
-	vrc := virtRouterConfig{
-		VirtRouter: lessgo.virtRouter,
-	}
+	vrc := virtRouterConfig{}
 	err = json.Unmarshal(b, &vrc)
 	if err != nil {
 		return
@@ -544,16 +547,16 @@ func (vs virtRouterSlice) Swap(i, j int) {
 
 // 根据id获取虚拟路由节点
 func GetVirtRouter(id string) (*VirtRouter, bool) {
-	virtRouterLock.RLock()
-	defer virtRouterLock.RUnlock()
+	virtRouterMapLock.RLock()
+	defer virtRouterMapLock.RUnlock()
 	vr, ok := virtRouterMap[id]
 	return vr, ok
 }
 
 // 根据path获取虚拟路由节点
 func GetVirtRouterByPath(path string) (*VirtRouter, bool) {
-	virtRouterLock.RLock()
-	defer virtRouterLock.RUnlock()
+	virtRouterMapLock.RLock()
+	defer virtRouterMapLock.RUnlock()
 	for _, vr := range virtRouterMap {
 		if vr.path == path {
 			return vr, true
@@ -620,14 +623,15 @@ func initVirtRouterConfig() {
 
 	md5, vr, err := readVirtRouterConfig()
 	if err != nil {
-		Log.Error("Read the config/virtrouter.config failed: %v.", err)
+		Log.Error("Reading the config/virtrouter.config fails: %v.", err)
 		return
 	}
 
 	// 重新运行程序
 	if md5 == Md5 {
 		if vr != nil {
-			vr.initFromConfig()
+			cleanVirtRouter()
+			vr.initFromConfig(true)
 			lessgo.virtRouter = vr
 		}
 		canSaveVirtRouterConfig = true
@@ -651,7 +655,7 @@ func initVirtRouterConfig() {
 
 	// 程序被重新编译后第一次运行
 	if vr != nil {
-		vr.initFromConfig()
+		vr.initFromConfig(false)
 		merge(lessgo.virtRouter, vr)
 		// os.Remove(ROUTERCONFIG_FILE)
 	}
@@ -704,8 +708,8 @@ func merge(a, b *VirtRouter) {
 
 // 添加路由节点
 func addVirtRouter(vr *VirtRouter) bool {
-	virtRouterLock.RLock()
-	defer virtRouterLock.RUnlock()
+	virtRouterMapLock.Lock()
+	defer virtRouterMapLock.Unlock()
 	if _, ok := virtRouterMap[vr.Id]; ok {
 		return false
 	}
@@ -713,11 +717,25 @@ func addVirtRouter(vr *VirtRouter) bool {
 	return true
 }
 
+// 覆盖设置路由节点
+func setVirtRouter(vr *VirtRouter) {
+	virtRouterMapLock.Lock()
+	defer virtRouterMapLock.Unlock()
+	virtRouterMap[vr.Id] = vr
+}
+
 // 删除路由节点
 func delVirtRouter(vr *VirtRouter) {
-	virtRouterLock.Lock()
-	defer virtRouterLock.Unlock()
+	virtRouterMapLock.Lock()
+	defer virtRouterMapLock.Unlock()
 	delete(virtRouterMap, vr.Id)
+}
+
+// 清空全部路由节点索引
+func cleanVirtRouter() {
+	virtRouterMapLock.Lock()
+	defer virtRouterMapLock.Unlock()
+	virtRouterMap = map[string]*VirtRouter{}
 }
 
 // 格式化path前缀
